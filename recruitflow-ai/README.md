@@ -60,7 +60,14 @@ cd recruitflow-ai/backend
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+python -m app.seed
 uvicorn app.main:app --reload
+```
+
+当前 Codex Windows 环境里如果存在外部 pytest 插件冲突，可用下面命令只运行本项目测试：
+
+```powershell
+$env:PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'; python -m pytest
 ```
 
 前端：

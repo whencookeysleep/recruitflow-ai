@@ -1,0 +1,11 @@
+Name: Alex Chen
+Phone: 13900002222
+Email: alex.chen@example.com
+School: Demo Institute of Technology
+Major: Computer Science
+Degree: Bachelor
+Graduation: 2025-06
+Position: 后端开发工程师
+Skills: Python FastAPI SQL Java
+Project: Built a fictional workflow automation API for HR demo data.
+Work: Backend intern at Example Cloud.
