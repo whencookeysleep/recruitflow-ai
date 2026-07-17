@@ -78,6 +78,14 @@ npm install
 npm run dev
 ```
 
+Docker：
+
+```bash
+cd recruitflow-ai
+cp .env.example .env
+docker compose up --build
+```
+
 ## 演示流程
 
 1. 打开 AI 简历录入页面上传一份 PDF，或将 PDF 放入 `backend/data/resume_inbox/`。
@@ -111,3 +119,7 @@ npm run dev
 3. 将 SQLite 替换为 PostgreSQL。
 4. 增加腾讯文档或 HRIS 的真实同步适配器。
 5. 引入审计、权限、数据留存和隐私脱敏策略。
+
+## API 文档
+
+启动后端后访问 `http://localhost:8000/docs` 查看 OpenAPI 文档。仓库内的静态接口说明见 `docs/api.md`。

@@ -8,3 +8,15 @@
 6. Mark screening as passed.
 7. Show the dashboard funnel update and event log.
 8. Export the candidate CSV.
+
+## Screenshot Placeholders
+
+Place final screenshots here after running the demo:
+
+- `docs/screenshots/01-dashboard.png`
+- `docs/screenshots/02-upload.png`
+- `docs/screenshots/03-pending-confirmation.png`
+- `docs/screenshots/04-candidate-detail.png`
+- `docs/screenshots/05-events.png`
+
+These placeholders intentionally avoid bundling fake screenshots before the app is run in the target environment.
