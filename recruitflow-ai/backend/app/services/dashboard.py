@@ -9,6 +9,12 @@ from app.schemas import ChartPoint, DashboardTrendsOut, MetricsOut
 from app.services.tasks import compute_tasks
 
 
+def as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
+
+
 def dashboard_metrics(db: Session) -> MetricsOut:
     candidates = list(db.scalars(select(Candidate).where(Candidate.current_status == "active")).all())
     now = datetime.now(timezone.utc)
@@ -16,7 +22,7 @@ def dashboard_metrics(db: Session) -> MetricsOut:
     overdue_count = len(compute_tasks(db))
     return MetricsOut(
         total_candidates=len(candidates),
-        new_this_week=sum(1 for candidate in candidates if candidate.created_at >= week_start),
+        new_this_week=sum(1 for candidate in candidates if as_utc(candidate.created_at) >= week_start),
         pending_screening=sum(1 for candidate in candidates if candidate.current_stage == "待用人部门二筛"),
         pending_interview_schedule=sum(1 for candidate in candidates if candidate.current_stage in {"二筛通过", "待约面试"}),
         pending_feedback=sum(1 for candidate in candidates if candidate.current_stage == "待面试反馈"),
@@ -43,10 +49,7 @@ def trends(db: Session) -> DashboardTrendsOut:
     stage_hours: dict[str, list[float]] = defaultdict(list)
     now = datetime.now(timezone.utc)
     for candidate in candidates:
-        updated_at = candidate.updated_at
-        if updated_at.tzinfo is None:
-            updated_at = updated_at.replace(tzinfo=timezone.utc)
-        stage_hours[candidate.current_stage].append((now - updated_at).total_seconds() / 3600)
+        stage_hours[candidate.current_stage].append((now - as_utc(candidate.updated_at)).total_seconds() / 3600)
     return DashboardTrendsOut(
         recent_seven_days=recent,
         position_counts=[ChartPoint(name=name, value=value) for name, value in position_counts.items()],
