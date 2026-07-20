@@ -1,4 +1,5 @@
 from collections.abc import Callable
+import json
 
 from sqlalchemy import Connection, Engine, MetaData, Table, Column, Integer, String, inspect, select, text
 
@@ -27,6 +28,30 @@ def _add_screening_approval_identity(connection: Connection) -> None:
         connection.execute(
             text("ALTER TABLE screening_assessments ADD COLUMN human_username VARCHAR(120)")
         )
+
+
+def _clear_cross_name_duplicate_matches(connection: Connection) -> None:
+    rows = connection.execute(
+        text(
+            "SELECT r.id, r.parsed_payload, c.name AS candidate_name "
+            "FROM resume_files r JOIN candidates c ON c.id = r.duplicate_candidate_id "
+            "WHERE r.parse_status = 'possible_duplicate'"
+        )
+    ).mappings()
+    for row in rows:
+        payload = row["parsed_payload"]
+        if isinstance(payload, str):
+            payload = json.loads(payload)
+        parsed_name = "".join((payload.get("name") or "").split()).casefold()
+        candidate_name = "".join((row["candidate_name"] or "").split()).casefold()
+        if parsed_name and candidate_name and parsed_name != candidate_name:
+            connection.execute(
+                text(
+                    "UPDATE resume_files SET duplicate_candidate_id = NULL, "
+                    "parse_status = 'pending_confirmation' WHERE id = :resume_id"
+                ),
+                {"resume_id": row["id"]},
+            )
     if "human_role" not in columns:
         connection.execute(
             text("ALTER TABLE screening_assessments ADD COLUMN human_role VARCHAR(40)")
@@ -36,6 +61,7 @@ def _add_screening_approval_identity(connection: Connection) -> None:
 MIGRATIONS: list[tuple[int, str, Callable[[Connection], None]]] = [
     (1, "create_recruitflow_schema", _create_initial_schema),
     (2, "add_screening_approval_identity", _add_screening_approval_identity),
+    (3, "clear_cross_name_duplicate_matches", _clear_cross_name_duplicate_matches),
 ]
 
 

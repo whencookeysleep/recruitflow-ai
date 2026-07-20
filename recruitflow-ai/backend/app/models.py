@@ -132,6 +132,23 @@ class ResumeFile(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
     candidate: Mapped[Candidate | None] = relationship(foreign_keys=[candidate_id], back_populates="resume_files")
+    duplicate_candidate: Mapped[Candidate | None] = relationship(foreign_keys=[duplicate_candidate_id])
+
+    @property
+    def duplicate_reason(self) -> str | None:
+        candidate = self.duplicate_candidate
+        payload = self.parsed_payload or {}
+        if candidate is None:
+            return None
+        phone = payload.get("phone")
+        if isinstance(phone, str) and "*" not in phone and phone == candidate.phone:
+            return "phone"
+        email = payload.get("email")
+        if isinstance(email, str) and email.casefold() not in {"candidate@example.com", "example@example.com"} and email == candidate.email:
+            return "email"
+        if self.sha256 == candidate.resume_sha256:
+            return "resume_sha256"
+        return "name_school_position"
 
 
 class RecruitmentEvent(Base):

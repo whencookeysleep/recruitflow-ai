@@ -26,6 +26,17 @@ class ParsedResume(BaseModel):
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
 
 
+class DuplicateCandidateSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str | None
+    phone: str | None
+    email: str | None
+    school: str | None
+    applied_position: str | None
+
+
 class ResumeFileOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -36,6 +47,8 @@ class ResumeFileOut(BaseModel):
     extracted_text: str
     parsed_payload: dict | None
     duplicate_candidate_id: int | None
+    duplicate_reason: str | None
+    duplicate_candidate: DuplicateCandidateSummary | None
     candidate_id: int | None
     created_at: datetime
 

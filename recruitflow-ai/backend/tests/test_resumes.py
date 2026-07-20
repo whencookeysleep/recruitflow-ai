@@ -1,7 +1,10 @@
 from pathlib import Path
 
+import pytest
 from sqlalchemy.orm import Session
 
+from app.models import Candidate, ResumeFile
+from app.schemas import CandidateConfirmRequest
 from app.services import resumes
 
 
@@ -59,3 +62,67 @@ def test_ingest_pdf_reparses_existing_incomplete_record(
     assert calls == 2
     assert second.id == first.id
     assert second.parsed_payload == {"name": "Demo Candidate"}
+
+
+def test_confirm_links_same_name_duplicate(db: Session) -> None:
+    candidate = Candidate(name="同名候选人", current_status="active")
+    db.add(candidate)
+    db.flush()
+    resume = ResumeFile(
+        filename="resume.pdf",
+        file_path="resume.pdf",
+        sha256="new-sha",
+        parse_status="possible_duplicate",
+        parsed_payload={"name": "同名候选人"},
+        duplicate_candidate_id=candidate.id,
+    )
+    db.add(resume)
+    db.commit()
+
+    result = resumes.confirm_resume(db, resume, CandidateConfirmRequest(name="同名候选人"))
+
+    assert result.id == candidate.id
+    assert resume.candidate_id == candidate.id
+    assert resume.parse_status == "confirmed"
+
+
+def test_confirm_creates_new_candidate_when_duplicate_name_differs(db: Session) -> None:
+    candidate = Candidate(name="已有候选人", current_status="active")
+    db.add(candidate)
+    db.flush()
+    resume = ResumeFile(
+        filename="resume.pdf",
+        file_path="resume.pdf",
+        sha256="new-sha",
+        parse_status="possible_duplicate",
+        parsed_payload={"name": "新候选人"},
+        duplicate_candidate_id=candidate.id,
+    )
+    db.add(resume)
+    db.commit()
+
+    result = resumes.confirm_resume(db, resume, CandidateConfirmRequest(name="新候选人"))
+
+    assert result.id != candidate.id
+    assert result.name == "新候选人"
+    assert resume.candidate_id == result.id
+    assert resume.duplicate_candidate_id is None
+
+
+def test_link_duplicate_rejects_different_name(db: Session) -> None:
+    candidate = Candidate(name="已有候选人", current_status="active")
+    db.add(candidate)
+    db.flush()
+    resume = ResumeFile(
+        filename="resume.pdf",
+        file_path="resume.pdf",
+        sha256="new-sha",
+        parse_status="possible_duplicate",
+        parsed_payload={"name": "新候选人"},
+        duplicate_candidate_id=candidate.id,
+    )
+    db.add(resume)
+    db.commit()
+
+    with pytest.raises(ValueError, match="same candidate name"):
+        resumes.link_duplicate_resume(db, resume)

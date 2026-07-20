@@ -77,8 +77,15 @@ def parsed_to_confirm_request(parsed: ParsedResume) -> CandidateConfirmRequest:
 def confirm_resume(db: Session, resume: ResumeFile, request: CandidateConfirmRequest) -> Candidate:
     if resume.parse_status == "confirmed":
         raise ValueError("Resume has already been confirmed")
-    if resume.duplicate_candidate_id and not request.create_new_if_duplicate:
-        raise ValueError("Possible duplicate requires explicit create_new_if_duplicate=true")
+    if resume.duplicate_candidate_id:
+        duplicate = db.get(Candidate, resume.duplicate_candidate_id)
+        request_name = "".join((request.name or "").split()).casefold()
+        duplicate_name = "".join((duplicate.name or "").split()).casefold() if duplicate else ""
+        if request_name and request_name != duplicate_name:
+            resume.duplicate_candidate_id = None
+            resume.parse_status = "pending_confirmation"
+        elif not request.create_new_if_duplicate:
+            return link_duplicate_resume(db, resume)
 
     candidate = Candidate(
         name=request.name,
@@ -109,6 +116,27 @@ def confirm_resume(db: Session, resume: ResumeFile, request: CandidateConfirmReq
     resume.candidate_id = candidate.id
     resume.parse_status = "confirmed"
     log_event(db, "human_confirmed", candidate_id=candidate.id, actor="HR", new_stage=candidate.current_stage)
+    db.commit()
+    db.refresh(candidate)
+    return candidate
+
+
+def link_duplicate_resume(db: Session, resume: ResumeFile) -> Candidate:
+    if resume.parse_status == "confirmed":
+        raise ValueError("Resume has already been confirmed")
+    if resume.duplicate_candidate_id is None:
+        raise ValueError("Resume has no duplicate candidate to link")
+    candidate = db.get(Candidate, resume.duplicate_candidate_id)
+    if candidate is None:
+        raise ValueError("Duplicate candidate no longer exists")
+    payload_name = "".join(str((resume.parsed_payload or {}).get("name") or "").split()).casefold()
+    candidate_name = "".join((candidate.name or "").split()).casefold()
+    if not payload_name or payload_name != candidate_name:
+        raise ValueError("Only resumes with the same candidate name can be linked")
+
+    resume.candidate_id = candidate.id
+    resume.parse_status = "confirmed"
+    log_event(db, "duplicate_resume_linked", candidate_id=candidate.id, actor="HR", new_stage=candidate.current_stage)
     db.commit()
     db.refresh(candidate)
     return candidate

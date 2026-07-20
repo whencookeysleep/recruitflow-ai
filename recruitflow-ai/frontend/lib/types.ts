@@ -35,6 +35,15 @@ export type ResumeFile = {
   extracted_text: string;
   parsed_payload: Record<string, unknown> | null;
   duplicate_candidate_id: number | null;
+  duplicate_reason: string | null;
+  duplicate_candidate: {
+    id: number;
+    name: string | null;
+    phone: string | null;
+    email: string | null;
+    school: string | null;
+    applied_position: string | null;
+  } | null;
   candidate_id: number | null;
   created_at: string;
 };

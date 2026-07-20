@@ -44,7 +44,7 @@ from app.services.files import MAX_PDF_BYTES, store_uploaded_pdf
 from app.services.integrations import sync_candidate_integrations
 from app.services.model_settings import get_ai_model_settings, update_ai_model_settings
 from app.services.notifications import send_screening_card
-from app.services.resumes import confirm_resume, ingest_pdf, parse_resume_record, parsed_to_confirm_request
+from app.services.resumes import confirm_resume, ingest_pdf, link_duplicate_resume, parse_resume_record, parsed_to_confirm_request
 from app.services.screening import batch_screen_candidates, confirm_agent_recommendation, get_assessment_or_raise, list_candidate_assessments, list_screening_assessments
 from app.services.screening_agent import run_screening_agent
 from app.services.tasks import compute_tasks
@@ -299,6 +299,60 @@ def send_card(
         if assessment and assessment.candidate_id != candidate_id:
             raise ValueError("Assessment does not belong to this candidate")
         return send_screening_card(db, settings, get_candidate_or_raise(db, candidate_id), assessment)
+    except Exception as exc:
+        raise bad_request(exc) from exc
+
+
+@router.post("/resumes/{resume_id}/confirm-new", response_model=CandidateOut)
+def confirm_duplicate_as_new(
+    resume_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    _user: CurrentUser = Depends(require_role("hr")),
+) -> Candidate:
+    resume = db.get(ResumeFile, resume_id)
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found")
+    if not resume.parsed_payload:
+        raise HTTPException(status_code=400, detail="Resume has no parsed payload")
+    try:
+        request = parsed_to_confirm_request(ParsedResume.model_validate(resume.parsed_payload))
+        request.create_new_if_duplicate = True
+        candidate = confirm_resume(db, resume, request)
+        background_tasks.add_task(
+            sync_candidate_integrations,
+            candidate.id,
+            settings,
+            event_type="resume_confirmed_as_new",
+            actor="HR",
+        )
+        return candidate
+    except Exception as exc:
+        raise bad_request(exc) from exc
+
+
+@router.post("/resumes/{resume_id}/link-duplicate", response_model=CandidateOut)
+def link_duplicate_resume_endpoint(
+    resume_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    _user: CurrentUser = Depends(require_role("hr")),
+) -> Candidate:
+    resume = db.get(ResumeFile, resume_id)
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found")
+    try:
+        candidate = link_duplicate_resume(db, resume)
+        background_tasks.add_task(
+            sync_candidate_integrations,
+            candidate.id,
+            settings,
+            event_type="duplicate_resume_linked",
+            actor="HR",
+        )
+        return candidate
     except Exception as exc:
         raise bad_request(exc) from exc
 
