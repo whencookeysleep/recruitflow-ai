@@ -8,7 +8,7 @@
 
 在不同招聘角色之间快速切换，让每个角色进入与其职责对应的工作视图。
 
-[▶ 查看角色切换 Demo（MP4）](docs/assets/role-switch-demo.mp4)
+![角色切换 Demo](docs/assets/role-switch-demo.gif)
 
 ## 项目背景
 
