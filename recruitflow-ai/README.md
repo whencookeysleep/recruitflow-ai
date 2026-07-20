@@ -16,6 +16,12 @@
 
 ![用人部门查询候选人信息](docs/assets/department-candidate-query.gif)
 
+### 用人部门二次审批
+
+用人部门可以结合 AI 二筛评分、硬性门槛、证据摘要和简历原文进行人工复核，并明确提交通过、待定或不通过结论。
+
+![用人部门二次审批](docs/assets/department-second-approval.gif)
+
 ## 页面预览
 
 ### 招聘数据看板
