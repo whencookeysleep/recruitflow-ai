@@ -22,6 +22,12 @@
 
 ![用人部门二次审批](docs/assets/department-second-approval.gif)
 
+### 用人部门功能
+
+完整展示用人部门的候选人二筛、证据核验、人工审批、招聘事件审计和协作设置流程。
+
+![用人部门功能](docs/assets/department-features.gif)
+
 ## 页面预览
 
 ### 招聘数据看板
