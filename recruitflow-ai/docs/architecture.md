@@ -7,7 +7,7 @@ flowchart TB
   API --> PDF["PyMuPDF Text Extraction"]
   API --> AI["AI Parser: Mock or OpenAI-compatible"]
   API --> Notify["NotificationAdapter"]
-  API --> Sync["DocumentSyncAdapter"]
+  API --> Sync["CSV Export / Tencent Docs MCP"]
   Watcher["watchdog resume_inbox watcher"] --> API
 ```
 

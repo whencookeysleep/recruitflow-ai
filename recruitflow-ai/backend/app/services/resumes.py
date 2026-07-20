@@ -10,6 +10,7 @@ from app.services.ai import parse_resume
 from app.services.dedupe import find_duplicate_candidate
 from app.services.events import log_event
 from app.services.files import copy_to_upload_dir, extract_pdf_text, sha256_file, wait_for_stable_file
+from app.services.model_settings import effective_ai_settings
 
 
 def ingest_pdf(db: Session, source_path: Path, settings: Settings, *, copy_file: bool = True) -> ResumeFile:
@@ -20,6 +21,11 @@ def ingest_pdf(db: Session, source_path: Path, settings: Settings, *, copy_file:
     sha256 = sha256_file(stored_path)
     existing = db.scalar(select(ResumeFile).where(ResumeFile.sha256 == sha256))
     if existing:
+        if existing.parsed_payload is None:
+            parsed = parse_resume_record(db, existing, settings)
+            db.commit()
+            db.refresh(parsed)
+            return parsed
         log_event(db, "resume_duplicate_file", note=f"Duplicate file ignored: {stored_path.name}")
         db.commit()
         return existing
@@ -30,14 +36,13 @@ def ingest_pdf(db: Session, source_path: Path, settings: Settings, *, copy_file:
     db.flush()
     log_event(db, "resume_discovered", note=f"Resume file discovered: {stored_path.name}")
     parsed = parse_resume_record(db, resume, settings)
-    db.refresh(parsed)
     db.commit()
     db.refresh(parsed)
     return parsed
 
 
 def parse_resume_record(db: Session, resume: ResumeFile, settings: Settings) -> ResumeFile:
-    parsed = parse_resume(resume.extracted_text, settings)
+    parsed = parse_resume(resume.extracted_text, effective_ai_settings(db, settings))
     duplicate = find_duplicate_candidate(db, parsed, resume.sha256)
     resume.parsed_payload = parsed.model_dump(mode="json")
     resume.parse_status = "possible_duplicate" if duplicate else "pending_confirmation"
@@ -72,8 +77,15 @@ def parsed_to_confirm_request(parsed: ParsedResume) -> CandidateConfirmRequest:
 def confirm_resume(db: Session, resume: ResumeFile, request: CandidateConfirmRequest) -> Candidate:
     if resume.parse_status == "confirmed":
         raise ValueError("Resume has already been confirmed")
-    if resume.duplicate_candidate_id and not request.create_new_if_duplicate:
-        raise ValueError("Possible duplicate requires explicit create_new_if_duplicate=true")
+    if resume.duplicate_candidate_id:
+        duplicate = db.get(Candidate, resume.duplicate_candidate_id)
+        request_name = "".join((request.name or "").split()).casefold()
+        duplicate_name = "".join((duplicate.name or "").split()).casefold() if duplicate else ""
+        if request_name and request_name != duplicate_name:
+            resume.duplicate_candidate_id = None
+            resume.parse_status = "pending_confirmation"
+        elif not request.create_new_if_duplicate:
+            return link_duplicate_resume(db, resume)
 
     candidate = Candidate(
         name=request.name,
@@ -104,6 +116,27 @@ def confirm_resume(db: Session, resume: ResumeFile, request: CandidateConfirmReq
     resume.candidate_id = candidate.id
     resume.parse_status = "confirmed"
     log_event(db, "human_confirmed", candidate_id=candidate.id, actor="HR", new_stage=candidate.current_stage)
+    db.commit()
+    db.refresh(candidate)
+    return candidate
+
+
+def link_duplicate_resume(db: Session, resume: ResumeFile) -> Candidate:
+    if resume.parse_status == "confirmed":
+        raise ValueError("Resume has already been confirmed")
+    if resume.duplicate_candidate_id is None:
+        raise ValueError("Resume has no duplicate candidate to link")
+    candidate = db.get(Candidate, resume.duplicate_candidate_id)
+    if candidate is None:
+        raise ValueError("Duplicate candidate no longer exists")
+    payload_name = "".join(str((resume.parsed_payload or {}).get("name") or "").split()).casefold()
+    candidate_name = "".join((candidate.name or "").split()).casefold()
+    if not payload_name or payload_name != candidate_name:
+        raise ValueError("Only resumes with the same candidate name can be linked")
+
+    resume.candidate_id = candidate.id
+    resume.parse_status = "confirmed"
+    log_event(db, "duplicate_resume_linked", candidate_id=candidate.id, actor="HR", new_stage=candidate.current_stage)
     db.commit()
     db.refresh(candidate)
     return candidate

@@ -35,6 +35,15 @@ export type ResumeFile = {
   extracted_text: string;
   parsed_payload: Record<string, unknown> | null;
   duplicate_candidate_id: number | null;
+  duplicate_reason: string | null;
+  duplicate_candidate: {
+    id: number;
+    name: string | null;
+    phone: string | null;
+    email: string | null;
+    school: string | null;
+    applied_position: string | null;
+  } | null;
   candidate_id: number | null;
   created_at: string;
 };
@@ -58,6 +67,57 @@ export type Metrics = {
   pending_feedback: number;
   overdue: number;
   offers: number;
+  pending_agent_confirmation: number;
+  screening_pass_rate: number;
+  average_screening_hours: number;
+};
+
+export type JobDescription = {
+  id: number;
+  job_code: string;
+  title: string;
+  department: string;
+  version: number;
+  status: "draft" | "active" | "archived";
+  content: Record<string, unknown>;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CriterionAssessment = {
+  criterion_id: string;
+  matched: boolean;
+  score: number;
+  evidence: string[];
+  reasoning: string;
+};
+
+export type ScreeningAssessment = {
+  id: number;
+  candidate_id: number;
+  job_description_id: number;
+  recommendation: "pass" | "hold" | "reject";
+  total_score: number;
+  criteria_results: CriterionAssessment[];
+  hard_requirement_failures: string[];
+  risk_points: string[];
+  interview_questions: string[];
+  summary: string;
+  model: string;
+  prompt_version: string;
+  status: "agent_recommended" | "confirmed";
+  human_decision: "pass" | "hold" | "reject" | null;
+  human_actor: string | null;
+  human_username: string | null;
+  human_role: "hr" | "department" | null;
+  human_note: string | null;
+  input_tokens: number;
+  output_tokens: number;
+  api_cost: number;
+  sync_status: string;
+  created_at: string;
+  confirmed_at: string | null;
 };
 
 export type ChartPoint = {

@@ -13,7 +13,10 @@ const metricLabels: Record<keyof Metrics, string> = {
   pending_interview_schedule: "待约面试",
   pending_feedback: "待反馈",
   overdue: "超时未推进",
-  offers: "Offer 人数"
+  offers: "Offer 人数",
+  pending_agent_confirmation: "待确认 AI 建议",
+  screening_pass_rate: "二筛通过率（%）",
+  average_screening_hours: "平均二筛耗时（小时）"
 };
 
 function ChartPanel({ title, data, type = "bar" }: { title: string; data: ChartPoint[]; type?: "bar" | "line" }) {
@@ -78,7 +81,7 @@ export function DashboardClient() {
         <h1 className="text-2xl font-semibold text-ink">招聘数据看板</h1>
         <p className="mt-1 text-sm text-muted">所有指标来自数据库实时查询，状态流转和超时判断不调用 AI。</p>
       </div>
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         {(Object.keys(metricLabels) as Array<keyof Metrics>).map((key) => (
           <div key={key} className="rounded-md border border-line bg-white p-4">
             <p className="text-xs text-muted">{metricLabels[key]}</p>

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Candidate, STAGES
+from app.models import Candidate, ScreeningAssessment, STAGES
 from app.schemas import ChartPoint, DashboardTrendsOut, MetricsOut
 from app.services.tasks import compute_tasks
 
@@ -17,6 +17,13 @@ def as_utc(value: datetime) -> datetime:
 
 def dashboard_metrics(db: Session) -> MetricsOut:
     candidates = list(db.scalars(select(Candidate).where(Candidate.current_status == "active")).all())
+    assessments = list(db.scalars(select(ScreeningAssessment)).all())
+    confirmed = [assessment for assessment in assessments if assessment.status == "confirmed"]
+    screening_hours = [
+        (as_utc(assessment.confirmed_at) - as_utc(assessment.created_at)).total_seconds() / 3600
+        for assessment in confirmed
+        if assessment.confirmed_at is not None
+    ]
     now = datetime.now(timezone.utc)
     week_start = now - timedelta(days=7)
     overdue_count = len(compute_tasks(db))
@@ -28,6 +35,17 @@ def dashboard_metrics(db: Session) -> MetricsOut:
         pending_feedback=sum(1 for candidate in candidates if candidate.current_stage == "待面试反馈"),
         overdue=overdue_count,
         offers=sum(1 for candidate in candidates if candidate.current_stage in {"Offer 待审批", "Offer 已发放"}),
+        pending_agent_confirmation=sum(
+            1 for assessment in assessments if assessment.status == "agent_recommended"
+        ),
+        screening_pass_rate=(
+            round(sum(1 for assessment in confirmed if assessment.human_decision == "pass") / len(confirmed) * 100, 1)
+            if confirmed
+            else 0.0
+        ),
+        average_screening_hours=(
+            round(sum(screening_hours) / len(screening_hours), 2) if screening_hours else 0.0
+        ),
     )
 
 

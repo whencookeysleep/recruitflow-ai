@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from sqlalchemy.orm import Session
-from watchdog.events import FileSystemEvent, FileSystemEventHandler
+from watchdog.events import FileMovedEvent, FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
 from app.config import Settings
@@ -16,7 +16,14 @@ class ResumeInboxHandler(FileSystemEventHandler):
     def on_created(self, event: FileSystemEvent) -> None:
         if event.is_directory:
             return
-        path = Path(event.src_path)
+        self._ingest_if_pdf(Path(event.src_path))
+
+    def on_moved(self, event: FileMovedEvent) -> None:
+        if event.is_directory:
+            return
+        self._ingest_if_pdf(Path(event.dest_path))
+
+    def _ingest_if_pdf(self, path: Path) -> None:
         if path.suffix.lower() != ".pdf":
             return
         with SessionLocal() as db:

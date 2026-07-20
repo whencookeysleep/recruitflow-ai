@@ -28,5 +28,6 @@ def get_db() -> Generator[Session, None, None]:
 
 def create_all() -> None:
     from app import models  # noqa: F401
+    from app.migrations import run_migrations
 
-    Base.metadata.create_all(bind=engine)
+    run_migrations(engine)

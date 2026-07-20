@@ -62,6 +62,57 @@ class Candidate(Base):
 
     resume_files: Mapped[list["ResumeFile"]] = relationship(foreign_keys="ResumeFile.candidate_id", back_populates="candidate")
     events: Mapped[list["RecruitmentEvent"]] = relationship(back_populates="candidate")
+    screening_assessments: Mapped[list["ScreeningAssessment"]] = relationship(back_populates="candidate")
+
+
+class JobDescription(Base):
+    __tablename__ = "job_descriptions"
+    __table_args__ = (UniqueConstraint("job_code", "version", name="uq_job_description_version"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    job_code: Mapped[str] = mapped_column(String(80), index=True)
+    title: Mapped[str] = mapped_column(String(160), index=True)
+    department: Mapped[str] = mapped_column(String(120), index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String(40), default="draft", index=True)
+    content: Mapped[dict] = mapped_column(JSON)
+    created_by: Mapped[str] = mapped_column(String(120))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    screening_assessments: Mapped[list["ScreeningAssessment"]] = relationship(back_populates="job_description")
+
+
+class ScreeningAssessment(Base):
+    __tablename__ = "screening_assessments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    candidate_id: Mapped[int] = mapped_column(Integer, ForeignKey("candidates.id"), index=True)
+    job_description_id: Mapped[int] = mapped_column(Integer, ForeignKey("job_descriptions.id"), index=True)
+    recommendation: Mapped[str] = mapped_column(String(40), index=True)
+    total_score: Mapped[float] = mapped_column(Float)
+    criteria_results: Mapped[list[dict]] = mapped_column(JSON, default=list)
+    hard_requirement_failures: Mapped[list[str]] = mapped_column(JSON, default=list)
+    risk_points: Mapped[list[str]] = mapped_column(JSON, default=list)
+    interview_questions: Mapped[list[str]] = mapped_column(JSON, default=list)
+    summary: Mapped[str] = mapped_column(Text)
+    model: Mapped[str] = mapped_column(String(160))
+    prompt_version: Mapped[str] = mapped_column(String(40))
+    status: Mapped[str] = mapped_column(String(40), default="agent_recommended", index=True)
+    human_decision: Mapped[str | None] = mapped_column(String(40))
+    human_actor: Mapped[str | None] = mapped_column(String(120))
+    human_username: Mapped[str | None] = mapped_column(String(120))
+    human_role: Mapped[str | None] = mapped_column(String(40))
+    human_note: Mapped[str | None] = mapped_column(Text)
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    api_cost: Mapped[float] = mapped_column(Float, default=0.0)
+    sync_status: Mapped[str] = mapped_column(String(40), default="pending")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    candidate: Mapped[Candidate] = relationship(back_populates="screening_assessments")
+    job_description: Mapped[JobDescription] = relationship(back_populates="screening_assessments")
 
 
 class ResumeFile(Base):
@@ -81,6 +132,23 @@ class ResumeFile(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
     candidate: Mapped[Candidate | None] = relationship(foreign_keys=[candidate_id], back_populates="resume_files")
+    duplicate_candidate: Mapped[Candidate | None] = relationship(foreign_keys=[duplicate_candidate_id])
+
+    @property
+    def duplicate_reason(self) -> str | None:
+        candidate = self.duplicate_candidate
+        payload = self.parsed_payload or {}
+        if candidate is None:
+            return None
+        phone = payload.get("phone")
+        if isinstance(phone, str) and "*" not in phone and phone == candidate.phone:
+            return "phone"
+        email = payload.get("email")
+        if isinstance(email, str) and email.casefold() not in {"candidate@example.com", "example@example.com"} and email == candidate.email:
+            return "email"
+        if self.sha256 == candidate.resume_sha256:
+            return "resume_sha256"
+        return "name_school_position"
 
 
 class RecruitmentEvent(Base):

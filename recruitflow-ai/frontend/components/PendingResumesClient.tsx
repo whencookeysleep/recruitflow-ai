@@ -40,6 +40,20 @@ export function PendingResumesClient() {
     }
   }
 
+  async function resolveDuplicate(resume: ResumeFile, resolution: "create" | "link") {
+    setBusyId(resume.id);
+    setError(null);
+    try {
+      const action = resolution === "create" ? "confirm-new" : "link-duplicate";
+      await apiPost<Candidate>(`/api/resumes/${resume.id}/${action}`);
+      load();
+    } catch (reason) {
+      setError((reason as Error).message);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function reparse(resume: ResumeFile) {
     setBusyId(resume.id);
     setError(null);
@@ -65,6 +79,7 @@ export function PendingResumesClient() {
       </div>
       {items.map((resume) => {
         const payload = resume.parsed_payload || {};
+        const duplicate = resume.duplicate_candidate;
         return (
           <section key={resume.id} className="rounded-md border border-line bg-white p-5">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -78,12 +93,25 @@ export function PendingResumesClient() {
                   <RefreshCw size={16} />
                   重新解析
                 </button>
-                <button className="inline-flex items-center gap-2 rounded-md bg-brand px-3 py-2 text-sm text-white" onClick={() => confirm(resume)} disabled={busyId === resume.id}>
-                  <CheckCircle size={16} />
-                  确认入库
-                </button>
+                {duplicate ? (
+                  <>
+                    <button className="inline-flex items-center gap-2 rounded-md border border-brand px-3 py-2 text-sm text-brand" onClick={() => resolveDuplicate(resume, "create")} disabled={busyId === resume.id}>仍然新建候选人</button>
+                    <button className="inline-flex items-center gap-2 rounded-md bg-brand px-3 py-2 text-sm text-white" onClick={() => resolveDuplicate(resume, "link")} disabled={busyId === resume.id}><CheckCircle size={16} />关联已有候选人</button>
+                  </>
+                ) : (
+                  <button className="inline-flex items-center gap-2 rounded-md bg-brand px-3 py-2 text-sm text-white" onClick={() => confirm(resume)} disabled={busyId === resume.id}>
+                    <CheckCircle size={16} />
+                    确认入库
+                  </button>
+                )}
               </div>
             </div>
+            {duplicate ? (
+              <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                <p className="font-medium">疑似重复候选人：{duplicate.name || `候选人 #${duplicate.id}`}</p>
+                <p className="mt-1 text-amber-800">{duplicate.applied_position || "岗位未知"} · {duplicate.school || "学校未知"} · 匹配依据：{resume.duplicate_reason || "姓名及履历信息"}</p>
+              </div>
+            ) : null}
             <div className="mt-5 grid gap-4 lg:grid-cols-3">
               <div className="rounded-md border border-line p-4">
                 <p className="mb-3 text-xs font-medium text-brand">AI 结构化字段</p>
