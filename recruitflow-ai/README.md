@@ -22,6 +22,12 @@
 
 ![用人部门二次审批](docs/assets/department-second-approval.gif)
 
+### 推送给 HR 审批
+
+展示 HR 上传并确认简历、用人部门完成二筛，以及审批结果回流至 HR 工作台的完整协作流程。
+
+![推送给 HR 审批](docs/assets/submit-to-hr-approval.gif)
+
 ### 用人部门功能
 
 完整展示用人部门的候选人二筛、证据核验、人工审批、招聘事件审计和协作设置流程。
