@@ -10,6 +10,7 @@ from app.services.ai import parse_resume
 from app.services.dedupe import find_duplicate_candidate
 from app.services.events import log_event
 from app.services.files import copy_to_upload_dir, extract_pdf_text, sha256_file, wait_for_stable_file
+from app.services.model_settings import effective_ai_settings
 
 
 def ingest_pdf(db: Session, source_path: Path, settings: Settings, *, copy_file: bool = True) -> ResumeFile:
@@ -20,6 +21,11 @@ def ingest_pdf(db: Session, source_path: Path, settings: Settings, *, copy_file:
     sha256 = sha256_file(stored_path)
     existing = db.scalar(select(ResumeFile).where(ResumeFile.sha256 == sha256))
     if existing:
+        if existing.parsed_payload is None:
+            parsed = parse_resume_record(db, existing, settings)
+            db.commit()
+            db.refresh(parsed)
+            return parsed
         log_event(db, "resume_duplicate_file", note=f"Duplicate file ignored: {stored_path.name}")
         db.commit()
         return existing
@@ -30,14 +36,13 @@ def ingest_pdf(db: Session, source_path: Path, settings: Settings, *, copy_file:
     db.flush()
     log_event(db, "resume_discovered", note=f"Resume file discovered: {stored_path.name}")
     parsed = parse_resume_record(db, resume, settings)
-    db.refresh(parsed)
     db.commit()
     db.refresh(parsed)
     return parsed
 
 
 def parse_resume_record(db: Session, resume: ResumeFile, settings: Settings) -> ResumeFile:
-    parsed = parse_resume(resume.extracted_text, settings)
+    parsed = parse_resume(resume.extracted_text, effective_ai_settings(db, settings))
     duplicate = find_duplicate_candidate(db, parsed, resume.sha256)
     resume.parsed_payload = parsed.model_dump(mode="json")
     resume.parse_status = "possible_duplicate" if duplicate else "pending_confirmation"

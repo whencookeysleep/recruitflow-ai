@@ -1,10 +1,11 @@
 import { AppShell } from "@/components/AppShell";
-import { CandidateDetailClient } from "@/components/CandidateDetailClient";
+import { CandidateScreeningClient } from "@/components/CandidateScreeningClient";
 
-export default function CandidateDetailPage({ params }: { params: { id: string } }) {
+export default async function CandidateDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   return (
     <AppShell>
-      <CandidateDetailClient id={params.id} />
+      <CandidateScreeningClient id={id} />
     </AppShell>
   );
 }

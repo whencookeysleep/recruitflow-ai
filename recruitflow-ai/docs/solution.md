@@ -21,5 +21,5 @@ RecruitFlow AI is a non-invasive HR automation demo. It starts from files that H
 ## Adapter Strategy
 
 - `NotificationAdapter` supports `MockWeComAdapter` and `WeComWebhookAdapter`.
-- `DocumentSyncAdapter` supports `CSVSyncAdapter` and `MockTencentDocAdapter`.
+- `CSVSyncAdapter` provides local export; `TencentDocsSyncAdapter` sends incremental candidate versions through the official Tencent Docs MCP endpoint.
 - Both integration points are replaceable without changing candidate workflow code.
