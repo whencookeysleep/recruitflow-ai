@@ -52,6 +52,13 @@ def _clear_cross_name_duplicate_matches(connection: Connection) -> None:
                 ),
                 {"resume_id": row["id"]},
             )
+
+
+def _add_screening_approval_role(connection: Connection) -> None:
+    columns = {
+        column["name"]
+        for column in inspect(connection).get_columns("screening_assessments")
+    }
     if "human_role" not in columns:
         connection.execute(
             text("ALTER TABLE screening_assessments ADD COLUMN human_role VARCHAR(40)")
@@ -62,6 +69,7 @@ MIGRATIONS: list[tuple[int, str, Callable[[Connection], None]]] = [
     (1, "create_recruitflow_schema", _create_initial_schema),
     (2, "add_screening_approval_identity", _add_screening_approval_identity),
     (3, "clear_cross_name_duplicate_matches", _clear_cross_name_duplicate_matches),
+    (4, "add_screening_approval_role", _add_screening_approval_role),
 ]
 
 
